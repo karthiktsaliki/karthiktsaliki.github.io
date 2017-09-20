@@ -1,0 +1,156 @@
+<html><head>
+        <meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+        <link href="./Karthik_Static/css" rel="stylesheet">
+        <script async="" src="./Karthik_Static/analytics.js"></script>
+        <script src="./Karthik_Static/jquery.min.js"></script>
+        <link rel="stylesheet" type="text/css" href="./Karthik_Static/portfolio.css">
+        <title>Karthik Tsaliki | Portfolio</title>
+    <script>
+
+        $(document).ready(function ()
+        {
+            $("#herobg").addClass("movein");
+            $("#heropost").addClass("movein");
+            $("#heroscrollbg").addClass("movein");
+            $("#heroscrollgif").addClass("movein");
+            $("#introduction").addClass("fadein");
+            $("#introduction1").addClass("fadein");
+            $("#rectangleunderline").addClass("expand");
+
+            $("#introduction1").typed({
+                strings: ["Full Stack Developer","Data Scientist"],
+                typeSpeed: 0
+            });
+
+
+
+        $(window).scroll(function ()
+        {
+
+            if ($(document).scrollTop() > 100)
+            {
+                $("#herobg").removeClass("movein");
+                $("#heropost").removeClass("movein");
+                $("#heroscrollbg").removeClass("movein");
+                $("#heroscrollgif").removeClass("movein");
+                $("#introduction").removeClass("fadein");
+                $("#introduction1").removeClass("fadein");
+                $("#rectangleunderline").removeClass("expand");
+            }
+            else
+            {
+                $("#herobg").addClass("movein");
+                $("#heropost").addClass("movein");
+                $("#heroscrollbg").addClass("movein");
+                $("#heroscrollgif").addClass("movein");
+                $("#introduction").addClass("fadein");
+                $("#introduction1").addClass("fadein");
+                $("#rectangleunderline").addClass("expand");
+            }
+
+            if ($(document).scrollTop() > 300)
+            {
+                $("#hero").addClass("fadeout");
+
+            }
+            else
+            {
+
+                $("#hero").removeClass("fadeout");
+
+            }
+
+            if ($(document).scrollTop() > 400)
+            {
+                $("ul").addClass("scrolled");
+                $("li.amitsharma").addClass("fadein");
+
+            }
+            else
+            {
+                $("ul").removeClass("scrolled");
+                $("li.amitsharma").removeClass("fadein");
+            }
+
+            if ($(document).scrollTop() > 450 )
+            {
+                $("#higif").addClass("movein");
+            }
+
+            else
+            {
+                $("#higif").removeClass("movein");
+            }
+
+    });
+
+    var data = [
+        [0, 12, "Good Morning,"],
+        [12, 15, "Good Afternoon,"],
+        [15, 24, "Good Evening,"]
+    ],
+    hr = new Date().getHours();
+
+    for(var i=0; i<data.length;i++)
+    {
+        if(hr >= data[i][0] && hr <= data[i][1])
+        {
+            $("#welcomemsggreet").html(data[i][2]);
+            break;
+        }
+    }
+
+    $(".jumper").on("click", function(e)
+    {
+        e.preventDefault();
+        $('html, body').animate(
+            {
+                scrollTop: $($(this).attr('href')).offset().top
+            },1000);
+    });
+
+    $(".jumperamitsharma").on("click", function(e)
+    {
+        e.preventDefault();
+        $('html, body').animate({
+        scrollTop: $($(this).attr('href')).offset().top
+        },1000);
+    });
+
+ });
+    </script>
+
+    <script src="./Karthik_Static/typed.js"></script>
+
+</head>
+
+    <body cz-shortcut-listen="true">
+
+
+        <div id="wrapper">
+
+        <div id="hidescrollcontainer">
+            <div id="hidescrollcontent">
+                <div id="fadein">
+                    <div id="hero" class="">
+                        <img src="./Karthik_Static/Introductionbg1.png" id="herobg" alt="ddpage2" class="movein">
+
+                        <div class="header">
+                            <p id="introduction" align="left" class="fadein"><b>Karthik Tsaliki</b></p><b>
+                            <p id="introduction1" align="left" class="fadein">Software Engineer</p><span class="typed-cursor">|</span><span class="typed-cursor">|</span><span class="typed-cursor">|</span>
+                        </b></div></div></div></div></div><b>
+
+            <script src="./Karthik_Static/scrollReveal.min.js"></script>
+            <script>
+                window.sr = new scrollReveal();
+            </script>
+             </b></div><b>
+
+        <div id="warning-message">
+                    <img src="./Karthik_Static/landscape.png" id="landscapeicon">
+                    <p id="warningmessage">Portfolios arent meant to be viewed on small screens! <br><br> Please rotate your device to landscape mode to continue.</p>
+                </div>
+
+
+
+</b></body></html>
