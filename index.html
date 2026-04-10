@@ -213,10 +213,23 @@
   .star { animation: twinkle var(--d, 3s) ease-in-out infinite; }
 
   @media (max-width: 820px) {
-    header.title { left: 20px; top: 18px; max-width: 92%; }
-    .legend { right: 20px; top: unset; bottom: 20px; min-width: 160px; padding: 12px 14px; font-size: 11px; }
-    .narrator { bottom: 140px; font-size: 16px; max-width: 92vw; }
+    header.title { left: 18px; top: 16px; max-width: 94%; }
+    header.title h1 { font-size: 24px; }
+    header.title p { font-size: 10px; letter-spacing: 0.14em; }
+    .legend { display: none; }
+    .narrator {
+      bottom: 30px; font-size: 16px;
+      max-width: 94vw;
+      line-height: 1.35;
+    }
+    .narrator .verb {
+      font-size: 0.58em; padding: 2px 9px; margin: 0 0.35em;
+      letter-spacing: 0.14em;
+    }
     .hint { display: none; }
+    .node text { font-size: 12px; stroke-width: 4px; }
+    .node.wisdom text { font-size: 11px; }
+    .node.core text { font-size: 13px; letter-spacing: 0.06em; }
   }
 </style>
 </head>
@@ -293,7 +306,7 @@ const groupLabels = {
 const nodes = [
   // ---------- Core ----------
   { id: 'karthik', label: 'Karthik Tsaliki', group: 'core', size: 24,
-    desc: 'A builder modeling his entire existence — from the first spark of the universe to the present moment — as one continuous thread of attention, craft, and long-horizon bets.' },
+    desc: 'A contrarian by design. Walks out of the attention economy, refuses the hustle scoreboard, and trades fast dopamine for the kind of work whose payoff curve is flat for years before it goes vertical. Bets his whole life — modeled from the Big Bang forward — that the quiet, unfashionable path is the only one that actually compounds.' },
 
   // ---------- Historical Backbone (eras) ----------
   { id: 'bigbang', label: 'Big Bang', group: 'cosmos', kind: 'era', size: 13,
@@ -569,7 +582,18 @@ merge.append('feMergeNode').attr('in', 'blur');
 merge.append('feMergeNode').attr('in', 'SourceGraphic');
 
 const g = svg.append('g');
-svg.call(d3.zoom().scaleExtent([0.3, 3]).on('zoom', (e) => g.attr('transform', e.transform)));
+const zoomBehavior = d3.zoom().scaleExtent([0.25, 3]).on('zoom', (e) => g.attr('transform', e.transform));
+svg.call(zoomBehavior);
+
+// On narrow screens, start zoomed out so the full map is visible
+const isMobile = window.innerWidth < 820;
+if (isMobile) {
+  const initial = d3.zoomIdentity
+    .translate(width / 2, height / 2)
+    .scale(0.6)
+    .translate(-width / 2, -height / 2);
+  svg.call(zoomBehavior.transform, initial);
+}
 
 const idToNode = Object.fromEntries(nodes.map(n => [n.id, n]));
 const linkData = links.map(l => ({ source: l.s, target: l.t, rel: l.rel, type: l.type || 'soft' }));
@@ -591,10 +615,11 @@ const sim = d3.forceSimulation(nodes)
   .force('center', d3.forceCenter(width / 2, height / 2))
   .force('collide', d3.forceCollide().radius(d => d.size + 38).strength(0.92))
   .force('radial', d3.forceRadial(d => {
+    const mobile = width < 820;
     if (d.id === 'karthik') return 0;
-    if (d.group === 'cosmos' && d.kind === 'wisdom') return minDim * 0.46;
-    if (d.group === 'cosmos') return minDim * 0.34;
-    return minDim * 0.19;
+    if (d.group === 'cosmos' && d.kind === 'wisdom') return minDim * (mobile ? 0.62 : 0.46);
+    if (d.group === 'cosmos') return minDim * (mobile ? 0.46 : 0.34);
+    return minDim * (mobile ? 0.26 : 0.19);
   }, width / 2, height / 2).strength(0.085));
 
 // Ambient drift — the graph breathes on its own so you never have to drag
