@@ -1,0 +1,740 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Karthik Tsaliki — Wisdom Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;500;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+  :root {
+    --ink: #eef1fa;
+    --ink-dim: #8a93a8;
+    --ink-faint: #4a516a;
+    --panel: rgba(8, 12, 24, 0.72);
+    --panel-border: rgba(167, 139, 250, 0.22);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; width: 100%;
+    background:
+      radial-gradient(ellipse 70% 50% at 30% 12%, #141b3a 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 78% 85%, #221432 0%, transparent 55%),
+      radial-gradient(ellipse at center, #060914 0%, #02030a 100%);
+    color: var(--ink);
+    font-family: 'Inter', system-ui, sans-serif;
+    overflow: hidden;
+  }
+  #stars, #nebula, #graph, #hud { position: fixed; inset: 0; }
+  #stars { z-index: 0; pointer-events: none; }
+  #nebula { z-index: 1; pointer-events: none; opacity: 0.6;
+    background:
+      radial-gradient(circle at 78% 28%, rgba(167,139,250,0.22), transparent 42%),
+      radial-gradient(circle at 12% 82%, rgba(251,146,60,0.10), transparent 40%),
+      radial-gradient(circle at 55% 60%, rgba(56,189,248,0.10), transparent 48%),
+      radial-gradient(circle at 85% 72%, rgba(244,114,182,0.10), transparent 40%);
+    filter: blur(26px);
+  }
+  #graph { z-index: 2; }
+  #hud { z-index: 3; pointer-events: none; }
+  #hud > * { pointer-events: auto; }
+
+  header.title { position: absolute; top: 28px; left: 36px; max-width: 60%; }
+  header.title h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 500;
+    font-size: clamp(30px, 3.6vw, 48px);
+    margin: 0;
+    letter-spacing: 0.01em;
+    background: linear-gradient(120deg, #ffffff 0%, #fcd34d 40%, #a78bfa 80%, #f472b6 100%);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 2px 20px rgba(167,139,250,0.2));
+  }
+  header.title h1 .amp { font-style: italic; opacity: 0.82; }
+  header.title p {
+    margin: 8px 0 0; color: var(--ink-dim);
+    font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase;
+    font-weight: 300;
+  }
+  header.title .dot {
+    display: inline-block; width: 5px; height: 5px; border-radius: 50%;
+    background: #fcd34d; margin: 0 10px 2px; vertical-align: middle;
+    box-shadow: 0 0 10px #fcd34d;
+  }
+
+  .legend {
+    position: absolute; top: 28px; right: 36px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-radius: 16px;
+    padding: 18px 20px;
+    font-size: 12px;
+    min-width: 220px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  }
+  .legend h4 {
+    margin: 0 0 12px; font-weight: 500;
+    font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+  .legend ul { list-style: none; margin: 0; padding: 0; }
+  .legend li {
+    display: flex; align-items: center; gap: 11px;
+    padding: 5px 0; color: var(--ink);
+    cursor: pointer; transition: transform .2s;
+    font-weight: 400;
+  }
+  .legend li:hover { transform: translateX(2px); }
+  .legend .sw {
+    width: 11px; height: 11px; border-radius: 50%;
+    box-shadow: 0 0 14px currentColor;
+  }
+
+  .panel {
+    position: absolute; left: 36px; bottom: 36px;
+    width: min(440px, 42vw);
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-radius: 18px;
+    padding: 24px 26px;
+    transition: opacity .35s ease, transform .35s ease;
+    opacity: 0; transform: translateY(12px);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+  }
+  .panel.active { opacity: 1; transform: translateY(0); }
+  .panel .eyebrow {
+    font-size: 10px; letter-spacing: 0.26em; text-transform: uppercase;
+    color: var(--ink-dim); margin-bottom: 8px; font-weight: 500;
+  }
+  .panel h2 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 30px; margin: 0 0 12px; font-weight: 500;
+  }
+  .panel p { margin: 0; color: #b4bcd0; line-height: 1.6; font-size: 14px; }
+  .panel .links { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .panel .chip {
+    font-size: 11px; padding: 5px 11px; border-radius: 999px;
+    border: 1px solid; background: rgba(255,255,255,0.02);
+    cursor: pointer; transition: background .2s, transform .2s;
+  }
+  .panel .chip:hover { background: rgba(255,255,255,0.06); transform: translateY(-1px); }
+
+  .hint {
+    position: absolute; right: 36px; bottom: 28px;
+    font-size: 10px; color: var(--ink-faint); letter-spacing: 0.18em;
+    text-transform: uppercase; font-weight: 400;
+  }
+
+  /* Graph */
+  .link {
+    stroke: rgba(167,139,250,0.18);
+    stroke-width: 1;
+    transition: stroke-opacity .3s, stroke-width .3s;
+  }
+  .link.backbone {
+    stroke: rgba(252,211,77,0.38);
+    stroke-width: 1.5;
+    stroke-dasharray: 2 5;
+  }
+  .link.faded { stroke-opacity: 0.04; }
+  .link.active { stroke-width: 2; stroke-opacity: 0.95; }
+
+  .edge-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px; font-weight: 300;
+    fill: #f5f3ff;
+    text-transform: lowercase;
+    letter-spacing: 0.08em;
+    paint-order: stroke;
+    stroke: rgba(3, 5, 12, 0.92);
+    stroke-width: 3.5px;
+    stroke-linejoin: round;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .25s;
+  }
+  .edge-label.active { opacity: 1; }
+
+  .node { cursor: pointer; }
+  .node .halo { opacity: 0.14; transition: opacity .35s; }
+  .node .body {
+    stroke: rgba(255,255,255,0.4);
+    stroke-width: 1;
+    transition: stroke-width .2s;
+  }
+  .node.core .body { stroke: #fff; stroke-width: 2; }
+  .node:hover .halo { opacity: 0.38; }
+  .node:hover .body { stroke-width: 2; }
+  .node text {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px; font-weight: 400;
+    fill: var(--ink);
+    pointer-events: none;
+    paint-order: stroke;
+    stroke: rgba(3, 5, 12, 0.9);
+    stroke-width: 3.5px;
+    stroke-linejoin: round;
+    letter-spacing: 0.01em;
+  }
+  .node.wisdom text {
+    font-style: italic;
+    font-size: 10px;
+    fill: #fef3c7;
+  }
+  .node.core text {
+    font-size: 15px; font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .node.faded { opacity: 0.08; }
+  .node.faded text { opacity: 0; }
+
+  @keyframes pulseRing {
+    0%   { r: 28; opacity: 0.55; }
+    100% { r: 70; opacity: 0; }
+  }
+  .pulse-ring {
+    fill: none; stroke: #ffffff; stroke-width: 1.2;
+    animation: pulseRing 3s ease-out infinite;
+  }
+  .pulse-ring.delay { animation-delay: 1.5s; }
+
+  @keyframes twinkle { 0%,100% { opacity: 0.3; } 50% { opacity: 1; } }
+  .star { animation: twinkle var(--d, 3s) ease-in-out infinite; }
+
+  @media (max-width: 820px) {
+    header.title { left: 20px; top: 18px; max-width: 92%; }
+    .legend { right: 20px; top: unset; bottom: 20px; min-width: 180px; padding: 14px 16px; }
+    .panel { left: 20px; right: 20px; bottom: 220px; width: auto; }
+    .hint { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<svg id="stars"></svg>
+<div id="nebula"></div>
+<svg id="graph"></svg>
+
+<div id="hud">
+  <header class="title">
+    <h1>Karthik Tsaliki <span class="amp">— a wisdom map</span></h1>
+    <p>Big Bang <span class="dot"></span> Wisdom Through Time <span class="dot"></span> Now</p>
+  </header>
+
+  <aside class="legend" id="legend">
+    <h4>Constellations</h4>
+    <ul></ul>
+  </aside>
+
+  <section class="panel" id="panel">
+    <div class="eyebrow" id="panel-eyebrow">Self</div>
+    <h2 id="panel-title">Karthik Tsaliki</h2>
+    <p id="panel-body">Hover any node to see its verbs. Click to pin.</p>
+    <div class="links" id="panel-chips"></div>
+  </section>
+
+  <div class="hint">Drag · Zoom · Click nodes · Hover for verbs</div>
+</div>
+
+<script>
+/* =========================================================
+   Starfield
+   ========================================================= */
+(function stars() {
+  const svg = document.getElementById('stars');
+  const w = window.innerWidth, h = window.innerHeight;
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  let html = '';
+  for (let i = 0; i < 240; i++) {
+    const x = Math.random() * w;
+    const y = Math.random() * h;
+    const r = Math.random() * 1.3 + 0.2;
+    const d = (Math.random() * 5 + 2).toFixed(1);
+    const op = (Math.random() * 0.6 + 0.25).toFixed(2);
+    html += `<circle class="star" cx="${x}" cy="${y}" r="${r}" fill="#fff" style="--d:${d}s" opacity="${op}"/>`;
+  }
+  svg.innerHTML = html;
+})();
+
+/* =========================================================
+   Palette
+   ========================================================= */
+const palette = {
+  core:       { solid: '#ffffff', deep: '#e2e8f0' },
+  cosmos:     { solid: '#fcd34d', deep: '#92400e' },
+  philosophy: { solid: '#a78bfa', deep: '#4c1d95' },
+  attention:  { solid: '#34d399', deep: '#064e3b' },
+  success:    { solid: '#f472b6', deep: '#831843' },
+  producer:   { solid: '#fb923c', deep: '#7c2d12' },
+  ai:         { solid: '#38bdf8', deep: '#0c4a6e' },
+};
+
+const groupLabels = {
+  core:       'Self',
+  cosmos:     'Historical Wisdom',
+  philosophy: 'Philosophy of Life',
+  attention:  'Attention & Lifestyle',
+  success:    'Success Redefined',
+  producer:   'Consumer → Producer',
+  ai:         'AI & Craft',
+};
+
+/* =========================================================
+   Nodes
+   kind: 'era'     — a step on the cosmic/historical timeline
+   kind: 'wisdom'  — a thinker or text that hangs off an era
+   ========================================================= */
+const nodes = [
+  // ---------- Core ----------
+  { id: 'karthik', label: 'Karthik Tsaliki', group: 'core', size: 24,
+    desc: 'A builder modeling his entire existence — from the first spark of the universe to the present moment — as one continuous thread of attention, craft, and long-horizon bets.' },
+
+  // ---------- Historical Backbone (eras) ----------
+  { id: 'bigbang', label: 'Big Bang', group: 'cosmos', kind: 'era', size: 13,
+    desc: 'The singular origin. Time, space, and the possibility of everything — including this map — begin here.' },
+  { id: 'cosmicDawn', label: 'Cosmic Dawn', group: 'cosmos', kind: 'era', size: 11,
+    desc: 'Hydrogen and helium cool into the first structures. The universe learns to be something rather than nothing.' },
+  { id: 'stars', label: 'Stars & Elements', group: 'cosmos', kind: 'era', size: 11,
+    desc: 'Stellar forges synthesize carbon, oxygen, iron — the raw alphabet of biology and of every tool humans will ever make.' },
+  { id: 'earth', label: 'Earth', group: 'cosmos', kind: 'era', size: 11,
+    desc: 'A rocky planet in a habitable orbit. Chemistry finds a place to become patient.' },
+  { id: 'life', label: 'Life', group: 'cosmos', kind: 'era', size: 11,
+    desc: 'Self-replicating molecules; the first memory. Evolution becomes the universe\'s slow way of paying attention.' },
+  { id: 'mind', label: 'Human Mind', group: 'cosmos', kind: 'era', size: 12,
+    desc: 'Language, story, symbol. The capacity to imagine a future worth building toward.' },
+  { id: 'vedicEra', label: 'Vedic Era', group: 'cosmos', kind: 'era', size: 12,
+    desc: 'The first great inner-science tradition — consciousness, ritual, and abundance mapped with the same seriousness as the outer world.' },
+  { id: 'axialAge', label: 'Axial Age', group: 'cosmos', kind: 'era', size: 12,
+    desc: 'Around 500 BCE, a strange synchrony: the Buddha, Lao Tzu, Socrates, and the Greek Stoics all surface the same question — what is the good life?' },
+  { id: 'enlightenment', label: 'Enlightenment', group: 'cosmos', kind: 'era', size: 11,
+    desc: 'Reason, method, and the printed word spread. The human mind is handed sharper instruments — and a new kind of arrogance.' },
+  { id: 'industrial', label: 'Industrial Age', group: 'cosmos', kind: 'era', size: 11,
+    desc: 'The machine arrives, and with it the conditioning that turns humans into consumers who endlessly chase money to buy things.' },
+  { id: 'modern', label: 'Modern World', group: 'cosmos', kind: 'era', size: 11,
+    desc: 'Networks, attention markets, algorithms. The hour itself becomes the most contested resource on earth.' },
+
+  // ---------- Historical Wisdom (thinkers / texts) ----------
+  { id: 'upanishads', label: 'Upanishads', group: 'cosmos', kind: 'wisdom', size: 9,
+    desc: 'The earliest articulation of non-duality: the self behind the self. The ground from which every later Eastern inner-science grows.' },
+  { id: 'gita', label: 'Bhagavad Gita', group: 'cosmos', kind: 'wisdom', size: 10,
+    desc: 'Action without attachment to the fruit. A handbook for showing up fully to the work in front of you without being enslaved by the outcome.' },
+  { id: 'buddha', label: 'Buddha', group: 'cosmos', kind: 'wisdom', size: 10,
+    desc: 'Mapped craving and suffering two and a half millennia before neuroscience named the dopamine loop. Proposed the middle way.' },
+  { id: 'laoTzu', label: 'Lao Tzu', group: 'cosmos', kind: 'wisdom', size: 9,
+    desc: 'Wu wei — effortless action. The counterweight to brute force: the strongest move is often the one that flows with the current, not against it.' },
+  { id: 'stoics', label: 'The Stoics', group: 'cosmos', kind: 'wisdom', size: 10,
+    desc: 'Marcus Aurelius, Epictetus, Seneca. A philosophy built for adversity: control what you can, release what you cannot, keep showing up.' },
+  { id: 'chanakya', label: 'Chanakya', group: 'cosmos', kind: 'wisdom', size: 9,
+    desc: 'The Arthashastra — ancient strategic wisdom on wealth, statecraft, and human nature. A reminder that prosperity has always been studied seriously.' },
+  { id: 'frankl', label: 'Viktor Frankl', group: 'cosmos', kind: 'wisdom', size: 9,
+    desc: 'Meaning as the one freedom that cannot be taken. The modern voice of the transformation arc — suffering as the doorway to depth.' },
+  { id: 'jung', label: 'Carl Jung', group: 'cosmos', kind: 'wisdom', size: 9,
+    desc: 'Named the shadow: the parts of the self we disown and therefore project onto the world. The psychological prelude to understanding algorithms that farm those shadows.' },
+
+  // ---------- Philosophy of Life ----------
+  { id: 'ownership', label: 'Ownership', group: 'philosophy', size: 12,
+    desc: 'Outcomes belong to the people who refuse to hand off the wheel. Agency is the first principle, not the last.' },
+  { id: 'conviction', label: 'Conviction', group: 'philosophy', size: 12,
+    desc: 'Hold positions the crowd has not yet priced. Conviction is what lets you stay when consensus screams exit.' },
+  { id: 'momentum', label: 'Forward Momentum', group: 'philosophy', size: 11,
+    desc: 'Direction over perfection. A slightly-wrong vector in motion beats a perfect plan at rest.' },
+  { id: 'contrarian', label: 'Contrarian Lens', group: 'philosophy', size: 12,
+    desc: 'Seek the non-obvious. The biggest opportunities live in the gap between what everyone believes and what is actually true.' },
+  { id: 'freeWill', label: 'Free Will', group: 'philosophy', size: 11,
+    desc: 'Every person has the power to choose how they use technology and what they focus on — rather than being quietly farmed by algorithms.' },
+  { id: 'individualResp', label: 'Wellbeing First', group: 'philosophy', size: 11,
+    desc: 'Care for your own body and mind before trying to serve family or society. Wellbeing is the base layer — the oxygen mask goes on you first.' },
+  { id: 'vedicWisdom', label: 'Inner Technology', group: 'philosophy', size: 11,
+    desc: 'Consciousness, ritual, silence — the ancient inner sciences treated as a serious operating system for a modern life.' },
+  { id: 'abundance', label: 'Abundance Principle', group: 'philosophy', size: 12,
+    desc: 'Prosperity is not magic. It is the alignment of attention, action, and time — the old teachings stripped of manifestation theater.' },
+
+  // ---------- Attention & Lifestyle ----------
+  { id: 'lowStim', label: 'Low-Stimulation Life', group: 'attention', size: 12,
+    desc: 'A deliberately quiet baseline, treated as a competitive advantage — the soil in which long, slow-rewarding work can actually root.' },
+  { id: 'dopamine', label: 'Dopamine Regulation', group: 'attention', size: 11,
+    desc: 'Study the machinery of motivation; stop renting peaks from apps. Save appetite for work that compounds.' },
+  { id: 'attention', label: 'Sustained Attention', group: 'attention', size: 11,
+    desc: 'The rarest asset of the century. Protected like capital, spent on problems that reward depth.' },
+  { id: 'hardWork', label: 'Hard, Slow Work', group: 'attention', size: 11,
+    desc: 'Problems whose payoff curves are flat for a long time, then vertical. Most people quit before the elbow.' },
+  { id: 'antiHustle', label: 'Anti-Hustle', group: 'attention', size: 11,
+    desc: 'The pressure to be "exceptional" leads to burnout, neglected health, and children pacified with screens. A quieter, longer game wins.' },
+
+  // ---------- Success Redefined ----------
+  { id: 'book', label: 'Legacy Book', group: 'success', size: 14,
+    desc: 'A practical guide written for future family, anchored in a transformation arc — from a period of lost family time and health decline, back toward integration and strength.' },
+  { id: 'transform', label: 'Transformation Arc', group: 'success', size: 11,
+    desc: 'The before-and-after that makes the book credible: a hard season, an honest reckoning, a return with better instruments.' },
+  { id: 'health', label: 'Health', group: 'success', size: 12,
+    desc: 'Body as the base layer. Everything else — family, work, wealth — is built on sleep, movement, nutrition, and nervous-system care.' },
+  { id: 'family', label: 'Family', group: 'success', size: 12,
+    desc: 'Relationships as the true compounding asset. Presence is the only currency that cannot be faked.' },
+  { id: 'wealth', label: 'Wealth ✦', group: 'success', size: 12,
+    desc: 'The most underdeveloped pillar — and therefore the one with the most upside. The chapter still being lived before it can be written.' },
+  { id: 'friends', label: 'Friends', group: 'success', size: 11,
+    desc: 'A deliberately chosen circle. Iron sharpening iron, across decades.' },
+  { id: 'antiExternal', label: 'Anti External Validation', group: 'success', size: 11,
+    desc: 'Success defined by net worth or titles is an ever-chasing rabbit hole. The only honest scoreboard is internal.' },
+
+  // ---------- Consumer → Producer ----------
+  { id: 'consumerTrap', label: 'Consumer Trap', group: 'producer', size: 12,
+    desc: 'Conditioned since the Industrial Revolution to chase money to buy things. A loop that uses up a life without ever building one.' },
+  { id: 'producerPath', label: 'Producer Path', group: 'producer', size: 12,
+    desc: 'The exit from the loop: shift from consuming value to producing it. Make something the world did not have before.' },
+  { id: 'majorityNot', label: 'Do What Others Won\'t', group: 'producer', size: 11,
+    desc: 'The path to real success is doing what the majority are not doing — and doing it consistently, long after the applause fades.' },
+  { id: 'careAbout', label: 'Find What You Care About', group: 'producer', size: 11,
+    desc: 'The ultimate move: identify something you actually care about and become a producer around it. Everything else is noise.' },
+
+  // ---------- AI & Craft ----------
+  { id: 'ml', label: 'Machine Learning', group: 'ai', size: 12,
+    desc: 'A decade building systems that learn — starting in language, moving into meaning. The day job and the instrument of curiosity.' },
+  { id: 'nlp', label: 'Natural Language', group: 'ai', size: 11,
+    desc: 'Where it began: teaching machines to read, parse, and respond. The runway for everything that followed.' },
+  { id: 'semantic', label: 'Semantic Essence', group: 'ai', size: 12,
+    desc: 'Beyond syntax: identifying the true essence of what a statement is saying. Meaning as the real substrate of intelligence.' },
+  { id: 'aiMentalModel', label: 'AI as Mental Model', group: 'ai', size: 11,
+    desc: 'Using AI personally to augment one\'s own thinking — a thinking partner that makes you more accountable and more productive than you could be alone.' },
+  { id: 'positiveAI', label: 'AI as Coach', group: 'ai', size: 11,
+    desc: 'Applied well, a learned system can be a positive guide — a personal coach that helps a person become the version of themselves they want to be.' },
+  { id: 'shadowAI', label: 'Shadow AI', group: 'ai', size: 11,
+    desc: 'Applied badly, the same systems power ad tech and social algorithms that exploit insecurity and hook the nervous system. The other face of the coin.' },
+  { id: 'futureAbundance', label: 'Future Abundance', group: 'ai', size: 12,
+    desc: 'A world where AI and robotics handle the fundamentals — farming, cooking, logistics — and humans recover the time to invest in health and family.' },
+  { id: 'writing', label: 'Writing', group: 'ai', size: 10,
+    desc: 'From long-form technical posts to the legacy book itself. Writing as the place where half-formed thoughts become load-bearing.' },
+];
+
+/* =========================================================
+   Links — every edge carries a verb phrase (rel)
+   ========================================================= */
+const links = [
+  // ---------- Historical backbone ----------
+  { s: 'bigbang',       t: 'cosmicDawn',   rel: 'cools into',       type: 'backbone' },
+  { s: 'cosmicDawn',    t: 'stars',        rel: 'condenses into',   type: 'backbone' },
+  { s: 'stars',         t: 'earth',        rel: 'forges',           type: 'backbone' },
+  { s: 'earth',         t: 'life',         rel: 'births',           type: 'backbone' },
+  { s: 'life',          t: 'mind',         rel: 'awakens',          type: 'backbone' },
+  { s: 'mind',          t: 'vedicEra',     rel: 'sings as',         type: 'backbone' },
+  { s: 'vedicEra',      t: 'axialAge',     rel: 'opens into',       type: 'backbone' },
+  { s: 'axialAge',      t: 'enlightenment',rel: 'ripens into',      type: 'backbone' },
+  { s: 'enlightenment', t: 'industrial',   rel: 'unleashes',        type: 'backbone' },
+  { s: 'industrial',    t: 'modern',       rel: 'accelerates into', type: 'backbone' },
+  { s: 'modern',        t: 'karthik',      rel: 'delivers',         type: 'backbone' },
+
+  // ---------- Wisdom traditions hang off their eras ----------
+  { s: 'vedicEra', t: 'upanishads', rel: 'speaks as' },
+  { s: 'vedicEra', t: 'gita',       rel: 'crystallizes as' },
+  { s: 'axialAge', t: 'buddha',     rel: 'gives us' },
+  { s: 'axialAge', t: 'laoTzu',     rel: 'gives us' },
+  { s: 'axialAge', t: 'stoics',     rel: 'gives us' },
+  { s: 'axialAge', t: 'chanakya',   rel: 'gives us' },
+  { s: 'modern',   t: 'frankl',     rel: 'forged' },
+  { s: 'modern',   t: 'jung',       rel: 'surfaced' },
+
+  // ---------- Karthik → wisdom (verbs of relationship) ----------
+  { s: 'karthik', t: 'gita',     rel: 'returns to' },
+  { s: 'karthik', t: 'stoics',   rel: 'steels himself with' },
+  { s: 'karthik', t: 'frankl',   rel: 'learns from' },
+
+  // Wisdom → modern nodes (ancient insight wired to present)
+  { s: 'upanishads', t: 'vedicWisdom',  rel: 'grounds' },
+  { s: 'gita',       t: 'momentum',     rel: 'teaches' },
+  { s: 'gita',       t: 'ownership',    rel: 'demands' },
+  { s: 'buddha',     t: 'dopamine',     rel: 'diagnosed' },
+  { s: 'buddha',     t: 'attention',    rel: 'trained' },
+  { s: 'laoTzu',     t: 'hardWork',     rel: 'qualifies' },
+  { s: 'stoics',     t: 'conviction',   rel: 'steels' },
+  { s: 'stoics',     t: 'individualResp', rel: 'demands' },
+  { s: 'chanakya',   t: 'wealth',       rel: 'teaches' },
+  { s: 'chanakya',   t: 'abundance',    rel: 'maps' },
+  { s: 'frankl',     t: 'transform',    rel: 'names' },
+  { s: 'jung',       t: 'shadowAI',     rel: 'warned of' },
+
+  // ---------- Philosophy ----------
+  { s: 'karthik',    t: 'ownership',     rel: 'insists on' },
+  { s: 'karthik',    t: 'conviction',    rel: 'holds' },
+  { s: 'karthik',    t: 'momentum',      rel: 'chooses' },
+  { s: 'karthik',    t: 'contrarian',    rel: 'thinks through' },
+  { s: 'karthik',    t: 'freeWill',      rel: 'insists on' },
+  { s: 'karthik',    t: 'individualResp',rel: 'practices' },
+  { s: 'karthik',    t: 'vedicWisdom',   rel: 'draws from' },
+  { s: 'vedicWisdom',t: 'abundance',     rel: 'teaches' },
+  { s: 'contrarian', t: 'conviction',    rel: 'fuels' },
+  { s: 'freeWill',   t: 'ownership',     rel: 'grounds' },
+
+  // ---------- Attention & Lifestyle ----------
+  { s: 'karthik',    t: 'lowStim',    rel: 'practices' },
+  { s: 'lowStim',    t: 'dopamine',   rel: 'requires' },
+  { s: 'lowStim',    t: 'attention',  rel: 'enables' },
+  { s: 'attention',  t: 'hardWork',   rel: 'sustains' },
+  { s: 'hardWork',   t: 'conviction', rel: 'tests' },
+  { s: 'karthik',    t: 'antiHustle', rel: 'rejects' },
+  { s: 'antiHustle', t: 'health',     rel: 'protects' },
+  { s: 'antiHustle', t: 'family',     rel: 'restores' },
+
+  // ---------- Success ----------
+  { s: 'karthik',      t: 'book',      rel: 'is writing' },
+  { s: 'book',         t: 'health',    rel: 'guides on' },
+  { s: 'book',         t: 'family',    rel: 'guides on' },
+  { s: 'book',         t: 'wealth',    rel: 'addresses' },
+  { s: 'book',         t: 'friends',   rel: 'honors' },
+  { s: 'book',         t: 'transform', rel: 'opens with' },
+  { s: 'transform',    t: 'health',    rel: 'reclaims' },
+  { s: 'transform',    t: 'family',    rel: 'reclaims' },
+  { s: 'book',         t: 'antiExternal', rel: 'rejects' },
+  { s: 'antiExternal', t: 'contrarian',   rel: 'echoes' },
+  { s: 'individualResp', t: 'health',  rel: 'requires' },
+  { s: 'individualResp', t: 'family',  rel: 'serves' },
+
+  // ---------- Consumer → Producer ----------
+  { s: 'industrial',   t: 'consumerTrap', rel: 'conditioned' },
+  { s: 'consumerTrap', t: 'producerPath', rel: 'escaped through' },
+  { s: 'producerPath', t: 'majorityNot',  rel: 'demands' },
+  { s: 'producerPath', t: 'careAbout',    rel: 'requires' },
+  { s: 'majorityNot',  t: 'contrarian',   rel: 'mirrors' },
+  { s: 'careAbout',    t: 'wealth',       rel: 'becomes' },
+  { s: 'producerPath', t: 'ownership',    rel: 'takes' },
+
+  // ---------- AI & Craft ----------
+  { s: 'karthik',         t: 'ml',              rel: 'builds' },
+  { s: 'ml',              t: 'nlp',             rel: 'began with' },
+  { s: 'nlp',             t: 'semantic',        rel: 'deepened into' },
+  { s: 'ml',              t: 'aiMentalModel',   rel: 'enables' },
+  { s: 'karthik',         t: 'aiMentalModel',   rel: 'uses' },
+  { s: 'aiMentalModel',   t: 'individualResp',  rel: 'augments' },
+  { s: 'ml',              t: 'positiveAI',      rel: 'can serve as' },
+  { s: 'ml',              t: 'shadowAI',        rel: 'can become' },
+  { s: 'shadowAI',        t: 'dopamine',        rel: 'exploits' },
+  { s: 'shadowAI',        t: 'freeWill',        rel: 'tests' },
+  { s: 'positiveAI',      t: 'aiMentalModel',   rel: 'amplifies' },
+  { s: 'ml',              t: 'futureAbundance', rel: 'unlocks' },
+  { s: 'karthik',         t: 'futureAbundance', rel: 'envisions' },
+  { s: 'futureAbundance', t: 'abundance',       rel: 'delivers' },
+  { s: 'futureAbundance', t: 'family',          rel: 'returns time to' },
+  { s: 'karthik',         t: 'writing',         rel: 'practices' },
+  { s: 'writing',         t: 'book',            rel: 'becomes' },
+  { s: 'writing',         t: 'nlp',             rel: 'mirrors' },
+];
+
+/* =========================================================
+   Render legend
+   ========================================================= */
+(function legend() {
+  const ul = document.querySelector('#legend ul');
+  Object.entries(groupLabels).forEach(([k, label]) => {
+    const li = document.createElement('li');
+    li.dataset.group = k;
+    li.innerHTML = `<span class="sw" style="background:${palette[k].solid};color:${palette[k].solid}"></span>${label}`;
+    li.addEventListener('mouseenter', () => highlightGroup(k));
+    li.addEventListener('mouseleave', () => clearHighlight());
+    ul.appendChild(li);
+  });
+})();
+
+/* =========================================================
+   Graph setup
+   ========================================================= */
+const svg = d3.select('#graph');
+const width = window.innerWidth;
+const height = window.innerHeight;
+svg.attr('viewBox', [0, 0, width, height]);
+
+const defs = svg.append('defs');
+
+// Radial gradients per group
+Object.entries(palette).forEach(([k, p]) => {
+  const grad = defs.append('radialGradient')
+    .attr('id', `grad-${k}`)
+    .attr('cx', '35%').attr('cy', '35%').attr('r', '75%');
+  grad.append('stop').attr('offset', '0%').attr('stop-color', '#ffffff').attr('stop-opacity', 0.95);
+  grad.append('stop').attr('offset', '35%').attr('stop-color', p.solid).attr('stop-opacity', 1);
+  grad.append('stop').attr('offset', '100%').attr('stop-color', p.deep).attr('stop-opacity', 0.95);
+});
+
+// Glow
+const glow = defs.append('filter')
+  .attr('id', 'glow')
+  .attr('x', '-100%').attr('y', '-100%').attr('width', '300%').attr('height', '300%');
+glow.append('feGaussianBlur').attr('stdDeviation', '5').attr('result', 'blur');
+const merge = glow.append('feMerge');
+merge.append('feMergeNode').attr('in', 'blur');
+merge.append('feMergeNode').attr('in', 'SourceGraphic');
+
+const g = svg.append('g');
+svg.call(d3.zoom().scaleExtent([0.3, 3]).on('zoom', (e) => g.attr('transform', e.transform)));
+
+const idToNode = Object.fromEntries(nodes.map(n => [n.id, n]));
+const linkData = links.map(l => ({ source: l.s, target: l.t, rel: l.rel, type: l.type || 'soft' }));
+
+const neighbors = {};
+linkData.forEach(l => {
+  (neighbors[l.source] ||= new Set()).add(l.target);
+  (neighbors[l.target] ||= new Set()).add(l.source);
+});
+
+const sim = d3.forceSimulation(nodes)
+  .force('link', d3.forceLink(linkData).id(d => d.id)
+    .distance(l => l.type === 'backbone' ? 115 : 92)
+    .strength(l => l.type === 'backbone' ? 0.78 : 0.28))
+  .force('charge', d3.forceManyBody().strength(-480))
+  .force('center', d3.forceCenter(width / 2, height / 2))
+  .force('collide', d3.forceCollide().radius(d => d.size + 24))
+  .force('radial', d3.forceRadial(d => {
+    if (d.id === 'karthik') return 0;
+    if (d.group === 'cosmos' && d.kind === 'wisdom') return 560;
+    if (d.group === 'cosmos') return 430;
+    return 240;
+  }, width / 2, height / 2).strength(0.11));
+
+/* =========================================================
+   Draw links
+   ========================================================= */
+const linkSel = g.append('g').attr('class', 'links')
+  .selectAll('line')
+  .data(linkData)
+  .join('line')
+  .attr('class', d => 'link' + (d.type === 'backbone' ? ' backbone' : ''));
+
+// Edge verb labels
+const labelSel = g.append('g').attr('class', 'edge-labels')
+  .selectAll('text')
+  .data(linkData)
+  .join('text')
+  .attr('class', 'edge-label')
+  .attr('text-anchor', 'middle')
+  .text(d => d.rel || '');
+
+/* =========================================================
+   Draw nodes
+   ========================================================= */
+const nodeSel = g.append('g').attr('class', 'nodes')
+  .selectAll('g')
+  .data(nodes)
+  .join('g')
+  .attr('class', d => {
+    let c = 'node';
+    if (d.id === 'karthik') c += ' core';
+    if (d.kind === 'wisdom') c += ' wisdom';
+    return c;
+  })
+  .call(d3.drag()
+    .on('start', (event, d) => { if (!event.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+    .on('drag',  (event, d) => { d.fx = event.x; d.fy = event.y; })
+    .on('end',   (event, d) => { if (!event.active) sim.alphaTarget(0); d.fx = null; d.fy = null; }));
+
+// Outer halo
+nodeSel.append('circle')
+  .attr('class', 'halo')
+  .attr('r', d => d.size * 2.4)
+  .attr('fill', d => palette[d.group].solid);
+
+// Body with radial gradient
+nodeSel.append('circle')
+  .attr('class', 'body')
+  .attr('r', d => d.size)
+  .attr('fill', d => `url(#grad-${d.group})`)
+  .attr('filter', 'url(#glow)');
+
+// Highlight speck
+nodeSel.append('circle')
+  .attr('r', d => d.size * 0.25)
+  .attr('cx', d => -d.size * 0.25)
+  .attr('cy', d => -d.size * 0.25)
+  .attr('fill', 'rgba(255,255,255,0.55)')
+  .attr('pointer-events', 'none');
+
+nodeSel.append('text')
+  .attr('dy', d => d.size + 16)
+  .attr('text-anchor', 'middle')
+  .text(d => d.label);
+
+// Pulsing rings on core
+const coreSel = nodeSel.filter(d => d.id === 'karthik');
+coreSel.insert('circle', ':first-child').attr('class', 'pulse-ring').attr('fill', 'none');
+coreSel.insert('circle', ':first-child').attr('class', 'pulse-ring delay').attr('fill', 'none');
+
+nodeSel
+  .on('mouseenter', (e, d) => highlightNode(d.id))
+  .on('mouseleave', () => clearHighlight())
+  .on('click', (e, d) => showPanel(d));
+
+sim.on('tick', () => {
+  linkSel
+    .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+    .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+  labelSel
+    .attr('x', d => (d.source.x + d.target.x) / 2)
+    .attr('y', d => (d.source.y + d.target.y) / 2 - 3);
+  nodeSel.attr('transform', d => `translate(${d.x},${d.y})`);
+});
+
+/* =========================================================
+   Interaction
+   ========================================================= */
+function highlightNode(id) {
+  const keep = neighbors[id] || new Set();
+  keep.add(id);
+  nodeSel.classed('faded', d => !keep.has(d.id));
+  linkSel
+    .classed('faded', l => l.source.id !== id && l.target.id !== id)
+    .classed('active', l => l.source.id === id || l.target.id === id);
+  labelSel.classed('active', l => l.source.id === id || l.target.id === id);
+}
+
+function highlightGroup(group) {
+  nodeSel.classed('faded', d => d.group !== group && d.id !== 'karthik');
+  linkSel.classed('faded', l => l.source.group !== group && l.target.group !== group);
+  labelSel.classed('active', l => l.source.group === group && l.target.group === group);
+}
+
+function clearHighlight() {
+  nodeSel.classed('faded', false);
+  linkSel.classed('faded', false).classed('active', false);
+  labelSel.classed('active', false);
+}
+
+function showPanel(d) {
+  const p = document.getElementById('panel');
+  document.getElementById('panel-eyebrow').textContent = groupLabels[d.group];
+  document.getElementById('panel-title').textContent = d.label.replace(' ✦', '');
+  document.getElementById('panel-body').textContent = d.desc;
+  const chips = document.getElementById('panel-chips');
+  chips.innerHTML = '';
+  const related = [...(neighbors[d.id] || [])].slice(0, 7);
+  related.forEach(rid => {
+    const n = idToNode[rid];
+    if (!n) return;
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.style.borderColor = palette[n.group].solid + '66';
+    chip.style.color = palette[n.group].solid;
+    chip.textContent = n.label.replace(' ✦', '');
+    chip.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      highlightNode(n.id); showPanel(n);
+    });
+    chips.appendChild(chip);
+  });
+  p.classList.add('active');
+}
+
+setTimeout(() => showPanel(idToNode.karthik), 700);
+
+window.addEventListener('resize', () => {
+  const w = window.innerWidth, h = window.innerHeight;
+  svg.attr('viewBox', [0, 0, w, h]);
+  sim.force('center', d3.forceCenter(w / 2, h / 2)).alpha(0.3).restart();
+});
+</script>
+</body>
+</html>
